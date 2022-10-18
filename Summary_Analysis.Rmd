@@ -1,0 +1,165 @@
+---
+title: "Dixon Summary Analysis"
+author: "Amy Hruska"
+date: "2022-09-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+```{r}
+## Set Working Directory, Load Packages, Load Data ##
+
+library(tidyverse)
+library(cowplot)
+
+setwd("~/R_data/Dixon") #set working directory
+
+GW <- read.csv("WaterLevelTemp_All.csv") #upload data
+WQ <- read.csv("WaterQuality_All.csv") #upload data
+WQ_ID <- read.csv("Water_Quality_SampleID.csv")
+
+```
+
+##Water Temperature and Pressure##
+```{r}
+
+## Water Temperature and Pressure Data Manipulation ##
+#### separate date and time into two separate columns ###
+
+GW2 <- GW %>% 
+  separate("DateTime_GMT_0500", 
+           into = c("date", "time"),
+           sep = " ")
+
+#### Add column for well location ####
+
+GW3 <- GW2 %>%
+  mutate(location = case_when(
+    HOBO == "21190623" ~ "Top",
+    HOBO == "20389430" ~ "Top",
+    HOBO == "20144149" ~ "Top_Driveway",
+    HOBO == "20389537" ~ "Pool",
+    HOBO == "20235112" ~ "Downstream_DryPool",
+    HOBO == "21098591" ~ "Top_FarmPond", ##89551 on Ellie's datasheet##
+    HOBO == "20144151" ~ "Mid") ##couldn't read on Ellie's datasheet##
+  )
+
+Gw4 <- GW3 %>% filter(location != "Mid")
+
+
+
+##daily mean pressure ##
+
+mean_pressure <- Gw4 %>%
+  group_by(HOBO, date, Pressure_psi, location) %>%
+  summarise(mean_pressure = mean(Pressure_psi)) %>%
+  ungroup()
+
+## daily mean temperature ##
+
+mean_temp <- Gw4 %>%
+  group_by(HOBO, date, Temp_F, location) %>%
+  summarise(meantemp = mean(Temp_F)) %>%
+  ungroup()
+
+
+```
+
+
+#Water Temperature and Pressure Figures#
+```{r}
+
+
+## Raw Pressure ##
+
+psi <- ggplot(data=Gw4, 
+    aes(x=as.Date(date, format = "%m / %d / %Y"), 
+    y=Pressure_psi, colour=location)) +
+    geom_point(size=1, alpha = 1/10)+ theme_bw()+
+    facet_grid(~location)+ 
+    theme(legend.position = "none", axis.text.x = element_text(angle=45, margin = margin(t=20, r=100)))+
+    labs(title="Raw pressure", y="Pressure (psi)", x="Date")
+psi
+
+
+```
+
+
+```{r}
+
+## Raw Temperature ##
+
+temp <- ggplot(data=Gw4, 
+    aes(x=as.Date(date, format = "%m / %d / %Y"), 
+    y=Temp_F, colour=location)) +
+    geom_point(size=1, alpha = 1/10)+ theme_bw()+
+    facet_grid(~location)+ 
+    theme(legend.position = "none", axis.text.x = element_text(angle=45, margin = margin(t=20, r=100) ))+
+    labs(title="Raw Temperature", y="Temperature (F)", x="Date")
+
+temp
+
+```
+
+
+```{r}
+
+## Mean Pressure (psi) ##
+
+mpsi <- ggplot(data=mean_pressure, 
+    aes(x=as.Date(date, format = "%m / %d / %Y"), 
+    y=mean_pressure)) +
+    geom_smooth(aes(colour = location)) + theme_bw()+
+    theme(legend.position = "none", axis.text.x = element_text(angle=45, margin = margin(t=20, r=100)))+
+    labs(title="Daily Pressure Means", y=" Daily Mean Pressure (psi)", x="Date")
+
+mpsi
+
+```
+
+
+
+
+```{r}
+
+## Mean Temperature (F) ##
+
+mtemp <- ggplot(data=mean_temp, 
+    aes(x=as.Date(date, format = "%m / %d / %Y"), 
+    y=meantemp)) +
+    geom_smooth(aes(colour = location)) + theme_bw()+
+    theme(legend.position = "none", axis.text.x = element_text(angle=45, margin = margin(t=20, r=100)))+
+    labs(title="Daily Temperature Means", y=" Daily Mean Temperature (F)", x="Date")
+
+mtemp
+
+
+
+```
+
+
+
+
+##Water Quality##
+```{r}
+## manipulation ##
+
+WQ2 <- WQ %>%
+  mutate(across(where(is.character),str_trim))
+
+WQ_ID <- WQ_ID %>%
+  mutate(across(where(is.character),str_trim))
+
+WQ3 <- merge(WQ2, WQ_ID, by.x = "Sample.ID", all.y = TRUE)
+
+WQ4 <- subset(WQ3, GW_SW == "SW")
+WQ7 <- subset(WQ3, GW_SW == "GW")
+  
+```
+
+
